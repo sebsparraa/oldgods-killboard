@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OldGods | Albion Killboard Global</title>
+    <style>
+        :root {
+            --bg-color: #0d0d0f;
+            --card-bg: #151518;
+            --border-color: #2b2a33;
+            --red-primary: #8B0000;
+            --red-light: #ff3344;
+            --gold: #d4af37;
+            --text-main: #f0f0f5;
+            --text-dim: #9999a8;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); min-height: 100vh; }
+
+        header {
+            background: linear-gradient(180deg, #1f0404 0%, var(--bg-color) 100%);
+            border-bottom: 2px solid var(--red-primary);
+            padding: 30px 20px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.8rem;
+            color: #fff;
+            letter-spacing: 3px;
+            text-shadow: 0 0 15px rgba(255, 0, 0, 0.4);
+        }
+        header h1 span { color: var(--red-light); }
+        header p { color: var(--text-dim); margin-top: 5px; }
+
+        /* Barra de búsqueda */
+        .search-container {
+            max-width: 800px;
+            margin: 30px auto;
+            display: flex;
+            gap: 10px;
+            padding: 0 15px;
+        }
+
+        select, input, button {
+            padding: 14px 18px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background: var(--card-bg);
+            color: #fff;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        input { flex: 1; border: 1px solid #444; }
+        input:focus { border-color: var(--red-light); }
+
+        button {
+            background: var(--red-primary);
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+            border: none;
+        }
+        button:hover { background: var(--red-light); }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            border-left: 4px solid var(--red-light);
+            padding-left: 10px;
+            text-transform: uppercase;
+        }
+
+        /* Tarjeta de Kill */
+        .kill-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 15px;
+            padding: 15px 20px;
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
+            gap: 20px;
+            transition: 0.2s;
+        }
+        .kill-card:hover { border-color: var(--red-primary); transform: translateY(-2px); }
+
+        .player-info { display: flex; align-items: center; gap: 15px; }
+        .player-info.victim { justify-content: flex-end; text-align: right; }
+
+        .player-details h3 { font-size: 1.1rem; color: #fff; }
+        .player-details span { font-size: 0.85rem; color: var(--text-dim); }
+        .player-details .ip { color: var(--gold); font-weight: bold; }
+
+        .vs-badge {
+            text-align: center;
+            padding: 8px 15px;
+            background: #000;
+            border-radius: 6px;
+            border: 1px solid #333;
+        }
+        .vs-badge .fame { color: var(--gold); font-weight: bold; font-size: 0.95rem; }
+
+        .gear-container { display: flex; gap: 5px; margin-top: 8px; flex-wrap: wrap; }
+        .victim .gear-container { justify-content: flex-end; }
+
+        .item-slot {
+            width: 44px;
+            height: 44px;
+            background: #09090b;
+            border: 1px solid #333;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .item-slot img { width: 100%; height: 100%; object-fit: cover; }
+
+        /* Modal Perfil */
+        #profile-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            z-index: 100;
+        }
+        .modal-content {
+            background: var(--card-bg);
+            border: 2px solid var(--red-primary);
+            border-radius: 10px;
+            max-width: 600px;
+            width: 100%;
+            padding: 25px;
+            position: relative;
+        }
+        .close-btn {
+            position: absolute;
+            top: 15px; right: 20px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-dim);
+        }
+        .close-btn:hover { color: #fff; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .stat-box {
+            background: #09090b;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #222;
+        }
+        .stat-box label { color: var(--text-dim); font-size: 0.8rem; display: block; }
+        .stat-box p { font-size: 1.2rem; font-weight: bold; color: #fff; margin-top: 4px; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>OLD<span>GODS</span> KILLBOARD</h1>
+        <p>Buscador de Jugadores, Duelos y Registro de Asesinatos Globales de Albion Online</p>
+    </header>
+
+    <div class="search-container">
+        <select id="serverSelect">
+            <option value="gameinfo">América (West)</option>
+            <option value="ams">Europa (EU)</option>
+            <option value="sgp">Asia (East)</option>
+        </select>
+        <input type="text" id="searchInput" placeholder="Escribe el nombre de un jugador o clan...">
+        <button onclick="buscarJugador()">🔍 Buscar</button>
+    </div>
+
+    <div class="container">
+        <h2 class="section-title">🩸 Asesinatos Recientes Globales</h2>
+        <div id="killfeed-list">Cargando eventos en tiempo real...</div>
+    </div>
+
+    <!-- Modal de Jugador -->
+    <div id="profile-modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="cerrarModal()">&times;</span>
+            <h2 id="modal-player-name" style="color: var(--red-light);">Nombre</h2>
+            <p id="modal-guild-name" style="color: var(--text-dim);">Clan</p>
+            
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <label>FAMA PVP (ASESINATOS)</label>
+                    <p id="modal-kill-fame" style="color: #ff4444;">0</p>
+                </div>
+                <div class="stat-box">
+                    <label>FAMA PERDIDA (DEATHS)</label>
+                    <p id="modal-death-fame" style="color: #aaa;">0</p>
+                </div>
+                <div class="stat-box">
+                    <label>K/D RATIO (FAMA)</label>
+                    <p id="modal-kd" style="color: var(--gold);">0.00</p>
+                </div>
+                <div class="stat-box">
+                    <label>FAMA PVE TOTAL</label>
+                    <p id="modal-pve-fame" style="color: #44ff44;">0</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/api';
+
+        // Cargar Kills Globales al entrar
+        async function loadGlobalKills() {
+            const region = document.getElementById('serverSelect').value;
+            const container = document.getElementById('killfeed-list');
+            try {
+                const res = await fetch(`${API_URL}/events?region=${region}&limit=15`);
+                const events = await res.json();
+                
+                container.innerHTML = '';
+                events.forEach(ev => {
+                    container.innerHTML += renderKillCard(ev);
+                });
+            } catch (err) {
+                container.innerHTML = '<p style="color: red;">Error al conectar con la API de Albion.</p>';
+            }
+        }
+
+        function renderKillCard(ev) {
+            const k = ev.Killer;
+            const v = ev.Victim;
+            return `
+                <div class="kill-card">
+                    <!-- Asesino -->
+                    <div class="player-info">
+                        <div class="player-details">
+                            <h3 style="cursor:pointer;" onclick="verPerfil('${k.Id}')">${k.Name}</h3>
+                            <span>[${k.GuildName || 'Sin Clan'}]</span>
+                            <div class="ip">${Math.round(k.AverageItemPower)} IP</div>
+                            <div class="gear-container">
+                                ${renderGear(k.Equipment)}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Centro VS -->
+                    <div class="vs-badge">
+                        <div style="font-size:0.8rem; color:#888;">FAMA</div>
+                        <div class="fame">🔥 ${ev.TotalVictimKillFame.toLocaleString()}</div>
+                    </div>
+
+                    <!-- Víctima -->
+                    <div class="player-info victim">
+                        <div class="player-details">
+                            <h3 style="cursor:pointer;" onclick="verPerfil('${v.Id}')">${v.Name}</h3>
+                            <span>[${v.GuildName || 'Sin Clan'}]</span>
+                            <div class="ip">${Math.round(v.AverageItemPower)} IP</div>
+                            <div class="gear-container">
+                                ${renderGear(v.Equipment)}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderGear(eq) {
+            if (!eq) return '';
+            const slots = [eq.MainHand, eq.Head, eq.Armor, eq.Shoes, eq.Cape];
+            return slots.map(item => {
+                if (!item) return '<div class="item-slot"></div>';
+                const img = `https://render.albiononline.com/v1/item/${item.Type}.png?quality=${item.Quality || 1}`;
+                return `<div class="item-slot"><img src="${img}" title="${item.Type}"></div>`;
+            }).join('');
+        }
+
+        // Buscar Jugador
+        async function buscarJugador() {
+            const query = document.getElementById('searchInput').value.trim();
+            const region = document.getElementById('serverSelect').value;
+            if (!query) return;
+
+            try {
+                const res = await fetch(`${API_URL}/search?q=${encodeURIComponent(query)}&region=${region}`);
+                const data = await res.json();
+                
+                if (data.players && data.players.length > 0) {
+                    verPerfil(data.players[0].Id);
+                } else {
+                    alert('No se encontró ningún jugador con ese nombre.');
+                }
+            } catch (e) {
+                alert('Error al buscar jugador.');
+            }
+        }
+
+        // Ver Perfil Modal
+        async function verPerfil(playerId) {
+            const region = document.getElementById('serverSelect').value;
+            try {
+                const res = await fetch(`${API_URL}/player/${playerId}?region=${region}`);
+                const p = await res.json();
+
+                document.getElementById('modal-player-name').innerText = p.Name;
+                document.getElementById('modal-guild-name').innerText = p.GuildName ? `Gremio: [${p.GuildName}]` : 'Sin Gremio';
+                document.getElementById('modal-kill-fame').innerText = (p.KillFame || 0).toLocaleString();
+                document.getElementById('modal-death-fame').innerText = (p.DeathFame || 0).toLocaleString();
+                
+                const kd = p.DeathFame > 0 ? (p.KillFame / p.DeathFame).toFixed(2) : p.KillFame;
+                document.getElementById('modal-kd').innerText = kd;
+                document.getElementById('modal-pve-fame').innerText = (p.LifetimeStatistics?.PvE?.Total || 0).toLocaleString();
+
+                document.getElementById('profile-modal').style.display = 'flex';
+            } catch (e) {
+                alert('Error al cargar datos del jugador.');
+            }
+        }
+
+        function cerrarModal() {
+            document.getElementById('profile-modal').style.display = 'none';
+        }
+
+        // Cargar al iniciar
+        loadGlobalKills();
+        document.getElementById('serverSelect').addEventListener('change', loadGlobalKills);
+    </script>
+</body>
+</html>
