@@ -17,6 +17,7 @@
             --text-main: #f0f2f5;
             --text-muted: #8b949e;
             --green: #2ecc71;
+            --blue: #3498db;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -66,8 +67,9 @@
             text-transform: uppercase;
         }
 
+        /* Nav controls oculto en inicio */
         .nav-controls {
-            display: flex;
+            display: none;
             align-items: center;
             gap: 14px;
         }
@@ -83,7 +85,7 @@
             border: none;
             color: #fff;
             padding: 8px 14px;
-            width: 240px;
+            width: 260px;
             outline: none;
             font-size: 0.9rem;
         }
@@ -286,6 +288,25 @@
             color: var(--gold);
         }
         .fame-text { color: var(--gold); font-weight: 700; }
+        .link-text { color: var(--blue); cursor: pointer; text-decoration: underline; }
+        .link-text:hover { color: #5dade2; }
+
+        /* ESTADÍSTICAS DETALLADAS */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 10px;
+            margin: 16px 0;
+        }
+        .stat-card {
+            background: #0e1017;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px 12px;
+            text-align: center;
+        }
+        .stat-card small { color: var(--text-muted); font-size: 0.75rem; display: block; margin-bottom: 4px; }
+        .stat-card span { font-weight: 700; font-size: 0.95rem; color: #fff; }
 
         /* MODALES */
         .modal-overlay {
@@ -385,24 +406,27 @@
 </head>
 <body>
 
+    <!-- NAVBAR -->
     <nav class="navbar">
         <div class="brand" onclick="showServerSelection()">
             <div class="brand-title">OLD<span>GODS</span></div>
             <span class="badge-kb">KillBoard #1</span>
         </div>
 
-        <div class="nav-controls">
+        <!-- Se muestra SOLO cuando entras a un servidor -->
+        <div class="nav-controls" id="navControls">
             <div class="search-box">
-                <input type="text" id="searchInput" placeholder="Buscar jugador en Albion..." onkeydown="if(event.key==='Enter') searchPlayers()">
-                <button onclick="searchPlayers()">Buscar</button>
+                <input type="text" id="searchInput" placeholder="Buscar jugador o gremio..." onkeydown="if(event.key==='Enter') searchEntities()">
+                <button onclick="searchEntities()">Buscar</button>
             </div>
             <div class="server-pill" id="currentServerBadge" onclick="showServerSelection()">🌎 AMERICAS</div>
         </div>
     </nav>
 
+    <!-- PANTALLA 1: SELECCION DE SERVIDOR (Buscador oculto) -->
     <section id="server-select-view">
         <h1 class="hero-title">OLD<span>GODS</span> KILLBOARD</h1>
-        <p class="hero-sub">Selecciona tu servidor de Albion Online para inspeccionar Rankings, Meta Builds y Batallas en tiempo real</p>
+        <p class="hero-sub">Selecciona tu servidor de Albion Online para inspeccionar Rankings, Gremios, Meta Builds y Batallas</p>
 
         <div class="server-cards">
             <div class="server-card" onclick="selectServer('americas')">
@@ -423,6 +447,7 @@
         </div>
     </section>
 
+    <!-- PANTALLA 2: DASHBOARD -->
     <main id="dashboard-view">
         <div class="tabs-bar">
             <div class="tab-buttons">
@@ -525,6 +550,7 @@
         </div>
     </main>
 
+    <!-- MODAL PRINCIPAL (JUGADOR / GREMIO / BATALLA / BÚSQUEDA) -->
     <div class="modal-overlay" id="mainModal" onclick="if(event.target===this) closeModal()">
         <div class="modal-content">
             <button class="close-btn" onclick="closeModal()">✕</button>
@@ -569,16 +595,20 @@
             return Number(n || 0).toLocaleString('es-ES');
         }
 
+        // VUELTA AL INICIO -> OCULTA EL BUSCADOR
         function showServerSelection() {
             document.getElementById('dashboard-view').style.display = 'none';
             document.getElementById('server-select-view').style.display = 'flex';
+            document.getElementById('navControls').style.display = 'none'; // Ocultar buscador
         }
 
+        // ENTRAR AL SERVIDOR -> MUESTRA EL BUSCADOR
         async function selectServer(server) {
             currentServer = server;
             document.getElementById('currentServerBadge').textContent = `🌎 ${server.toUpperCase()}`;
             document.getElementById('server-select-view').style.display = 'none';
             document.getElementById('dashboard-view').style.display = 'block';
+            document.getElementById('navControls').style.display = 'flex'; // Mostrar buscador
 
             if (browserCache[server]) {
                 renderAll(browserCache[server]);
@@ -610,14 +640,14 @@
             document.getElementById('rankingCount').textContent = `${list.length} Jugadores`;
             const tbody = document.getElementById('rankingsTableBody');
             tbody.innerHTML = list.map(p => `
-                <tr class="clickable-row" onclick="openPlayerModal('${p.id}', '${encodeURIComponent(p.name)}', '${encodeURIComponent(p.guildName)}', ${p.fame})">
+                <tr class="clickable-row">
                     <td><strong>#${p.rank}</strong></td>
-                    <td>${itemImg(p.weapon, 38)}</td>
-                    <td><strong>${p.name}</strong> <small style="color:var(--text-muted)">(${p.ip} IP)</small></td>
-                    <td style="color:var(--text-muted)">${p.guildName}</td>
-                    <td><span class="div-badge">${p.division}</span></td>
-                    <td><span style="color:var(--green)">${p.kills}K</span> / <span style="color:var(--red-bright)">${p.deaths}D</span> <small>(${p.kd})</small></td>
-                    <td class="fame-text">${formatNum(p.fame)}</td>
+                    <td onclick="openPlayerModal('${p.id}')">${itemImg(p.weapon, 38)}</td>
+                    <td onclick="openPlayerModal('${p.id}')"><strong>${p.name}</strong> <small style="color:var(--text-muted)">(${p.ip} IP)</small></td>
+                    <td>${p.guildId ? `<span class="link-text" onclick="openGuildModal('${p.guildId}')">${p.guildName}</span>` : `<span style="color:var(--text-muted)">${p.guildName}</span>`}</td>
+                    <td onclick="openPlayerModal('${p.id}')"><span class="div-badge">${p.division}</span></td>
+                    <td onclick="openPlayerModal('${p.id}')"><span style="color:var(--green)">${p.kills}K</span> / <span style="color:var(--red-bright)">${p.deaths}D</span> <small>(${p.kd})</small></td>
+                    <td onclick="openPlayerModal('${p.id}')" class="fame-text">${formatNum(p.fame)}</td>
                 </tr>
             `).join('');
         }
@@ -672,6 +702,7 @@
             }).join('') + `</div>`;
         }
 
+        // MODAL DE BATALLA
         async function openBattleModal(eventId) {
             const modal = document.getElementById('mainModal');
             const body = document.getElementById('modalBody');
@@ -696,13 +727,13 @@
                 <div class="battle-fighters">
                     <div class="fighter-box killer">
                         <h3 style="color:var(--green)">🏆 ASESINO: ${evt.Killer?.Name}</h3>
-                        <p style="color:var(--text-muted); font-size:0.85rem;">Gremio: ${evt.Killer?.GuildName || 'Sin Gremio'} | IP: <strong>${Math.round(evt.Killer?.AverageItemPower || 0)}</strong></p>
+                        <p style="color:var(--text-muted); font-size:0.85rem;">Gremio: <strong>${evt.Killer?.GuildName || 'Sin Gremio'}</strong> | IP: <strong>${Math.round(evt.Killer?.AverageItemPower || 0)}</strong></p>
                         ${renderGearSlots(evt.Killer?.Equipment)}
                     </div>
 
                     <div class="fighter-box victim">
                         <h3 style="color:var(--red-bright)">💀 VÍCTIMA: ${evt.Victim?.Name}</h3>
-                        <p style="color:var(--text-muted); font-size:0.85rem;">Gremio: ${evt.Victim?.GuildName || 'Sin Gremio'} | IP: <strong>${Math.round(evt.Victim?.AverageItemPower || 0)}</strong></p>
+                        <p style="color:var(--text-muted); font-size:0.85rem;">Gremio: <strong>${evt.Victim?.GuildName || 'Sin Gremio'}</strong> | IP: <strong>${Math.round(evt.Victim?.AverageItemPower || 0)}</strong></p>
                         ${renderGearSlots(evt.Victim?.Equipment)}
                     </div>
                 </div>
@@ -714,19 +745,15 @@
             `;
         }
 
-        async function openPlayerModal(playerId, encodedName = 'Jugador', encodedGuild = '', initialFame = 0) {
+        // MODAL DE JUGADOR (MÁS INFO Y DESGLOSE COMPLETO)
+        async function openPlayerModal(playerId) {
             const modal = document.getElementById('mainModal');
             const body = document.getElementById('modalBody');
             modal.style.display = 'flex';
 
-            const name = decodeURIComponent(encodedName);
-            const guild = decodeURIComponent(encodedGuild);
-
             body.innerHTML = `
-                <h2 style="font-family:'Cinzel',serif;">👤 ${name}</h2>
-                <p style="color:var(--text-muted); margin-bottom:16px;">Gremio: <strong>${guild || 'Consultando...'}</strong> | Fama: <span class="fame-text">${formatNum(initialFame)}</span></p>
-                <div style="background:#11131c; padding:20px; border-radius:8px; border:1px solid var(--border); text-align:center;">
-                    <p style="color:var(--gold); font-weight:600;">⚡ Descargando historial de 10 Kills y 10 Muertes desde Albion...</p>
+                <div style="text-align:center; padding:30px;">
+                    <p style="color:var(--gold); font-weight:700;">⚡ Descargando perfil completo desde Albion Online...</p>
                 </div>
             `;
 
@@ -736,19 +763,41 @@
                 const info = data.info || {};
                 const kills = data.recentKills || [];
                 const deaths = data.recentDeaths || [];
+                const stats = info.LifetimeStatistics || {};
+                const pve = stats.PvE || {};
 
                 [...kills, ...deaths].forEach(e => {
                     if (e && e.EventId) browserCache.events[`${currentServer}_${e.EventId}`] = e;
                 });
 
                 body.innerHTML = `
-                    <h2 style="font-family:'Cinzel',serif;">👤 ${info.Name || name}</h2>
-                    <p style="color:var(--text-muted); margin-bottom:16px;">
-                        Gremio: <strong>${info.GuildName || guild || 'Sin Gremio'}</strong> |
-                        Kill Fame: <span class="fame-text">${formatNum(info.KillFame || initialFame)}</span> |
-                        Death Fame: <span style="color:var(--red-bright)">${formatNum(info.DeathFame || 0)}</span>
+                    <h2 style="font-family:'Cinzel',serif; font-size:1.8rem; margin-bottom:4px;">👤 ${info.Name || 'Jugador'}</h2>
+                    <p style="color:var(--text-muted); margin-bottom:14px;">
+                        Gremio: ${info.GuildId ? `<span class="link-text" onclick="openGuildModal('${info.GuildId}')">${info.GuildName}</span>` : '<span>Sin Gremio</span>'}
+                        ${info.AllianceName ? ` | Alianza: <strong style="color:var(--gold)">[${info.AllianceName}]</strong>` : ''}
                     </p>
 
+                    <!-- ESTADÍSTICAS GENERALES -->
+                    <div class="stats-grid">
+                        <div class="stat-card"><small>PvP Kill Fame</small><span style="color:var(--gold)">${formatNum(info.KillFame)}</span></div>
+                        <div class="stat-card"><small>PvP Death Fame</small><span style="color:var(--red-bright)">${formatNum(info.DeathFame)}</span></div>
+                        <div class="stat-card"><small>Fame Ratio (K/D)</small><span style="color:var(--green)">${info.FameRatio || (info.KillFame / (info.DeathFame || 1)).toFixed(2)}</span></div>
+                        <div class="stat-card"><small>Total PvE Fame</small><span>${formatNum(pve.Total)}</span></div>
+                        <div class="stat-card"><small>Crafteo (Crafting)</small><span>${formatNum(stats.Crafting?.Total)}</span></div>
+                        <div class="stat-card"><small>Recolección (Gathering)</small><span>${formatNum(stats.Gathering?.All?.Total)}</span></div>
+                    </div>
+
+                    <!-- DESGLOSE PVE DETALLADO -->
+                    <h4 style="margin: 14px 0 8px; color:var(--text-muted); font-size:0.85rem; text-transform:uppercase;">🗺️ Desglose de Fama PvE</h4>
+                    <div class="stats-grid">
+                        <div class="stat-card"><small>Nieblas (Mists)</small><span>${formatNum(pve.Mists)}</span></div>
+                        <div class="stat-card"><small>Corruptas (Corrupted)</small><span>${formatNum(pve.CorruptedDungeon)}</span></div>
+                        <div class="stat-card"><small>Avalon</small><span>${formatNum(pve.Avalon)}</span></div>
+                        <div class="stat-card"><small>Outlands</small><span>${formatNum(pve.Outlands)}</span></div>
+                        <div class="stat-card"><small>Royal / Hellgates</small><span>${formatNum((pve.Royal || 0) + (pve.Hellgate || 0))}</span></div>
+                    </div>
+
+                    <!-- HISTORIAL DE 10 KILLS Y 10 DEATHS -->
                     <div class="battle-fighters">
                         <div class="fighter-box killer">
                             <h4 style="color:var(--green); margin-bottom:10px;">⚔️ ÚLTIMAS 10 BAJAS (KILLS)</h4>
@@ -759,7 +808,7 @@
                                             <td>${itemImg(k.Killer?.Equipment?.MainHand?.Type, 30)} vs <strong>${k.Victim?.Name}</strong></td>
                                             <td class="fame-text">+${formatNum(k.TotalVictimKillFame)}</td>
                                         </tr>
-                                    `).join('') : '<tr><td style="color:var(--text-muted); padding:10px;">Sin bajas registradas en esta temporada</td></tr>'}
+                                    `).join('') : '<tr><td style="color:var(--text-muted); padding:10px;">Sin bajas registradas</td></tr>'}
                                 </tbody>
                             </table>
                         </div>
@@ -773,44 +822,118 @@
                                             <td>${itemImg(d.Victim?.Equipment?.MainHand?.Type, 30)} por <strong>${d.Killer?.Name}</strong></td>
                                             <td style="color:var(--red-bright)">-${formatNum(d.TotalVictimKillFame)}</td>
                                         </tr>
-                                    `).join('') : '<tr><td style="color:var(--text-muted); padding:10px;">Sin muertes registradas en esta temporada</td></tr>'}
+                                    `).join('') : '<tr><td style="color:var(--text-muted); padding:10px;">Sin muertes registradas</td></tr>'}
                                 </tbody>
                             </table>
                         </div>
                     </div>
                 `;
             } catch (e) {
-                body.innerHTML += `<p style="color:var(--red-bright); margin-top:10px;">Error al conectar con los servidores de Albion.</p>`;
+                body.innerHTML = `<p style="color:var(--red-bright); text-align:center;">Error al cargar datos del jugador.</p>`;
             }
         }
 
-        async function searchPlayers() {
+        // MODAL DE GREMIO (GUILD)
+        async function openGuildModal(guildId) {
+            const modal = document.getElementById('mainModal');
+            const body = document.getElementById('modalBody');
+            modal.style.display = 'flex';
+
+            body.innerHTML = `<p style="text-align:center; padding:30px; color:var(--gold);">⚡ Descargando información del gremio...</p>`;
+
+            try {
+                const res = await fetch(`/api/guild/${guildId}?server=${currentServer}`);
+                const data = await res.json();
+                const info = data.info || {};
+                const members = data.members || [];
+
+                body.innerHTML = `
+                    <h2 style="font-family:'Cinzel',serif; font-size:1.8rem;">🛡️ GREMIO: ${info.Name || 'Gremio'}</h2>
+                    <p style="color:var(--text-muted); margin-bottom:14px;">
+                        Alianza: <strong style="color:var(--gold)">${info.AllianceName ? `[${info.AllianceTag || ''}] ${info.AllianceName}` : 'Sin Alianza'}</strong> |
+                        Líder / Fundador: <strong>${info.FounderName || 'Desconocido'}</strong>
+                    </p>
+
+                    <div class="stats-grid">
+                        <div class="stat-card"><small>Miembros</small><span style="color:var(--blue)">${info.MemberCount || members.length}</span></div>
+                        <div class="stat-card"><small>PvP Kill Fame Total</small><span style="color:var(--gold)">${formatNum(info.killFame)}</span></div>
+                        <div class="stat-card"><small>PvP Death Fame Total</small><span style="color:var(--red-bright)">${formatNum(info.DeathFame)}</span></div>
+                    </div>
+
+                    <h4 style="margin:20px 0 10px; color:var(--gold);">👥 TOP MIEMBROS MÁS DESTACADOS</h4>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Miembro</th>
+                                <th>PvP Kill Fame</th>
+                                <th>PvE Fame</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${members.length ? members.map((m, idx) => `
+                                <tr class="clickable-row" onclick="openPlayerModal('${m.Id}')">
+                                    <td><strong>#${idx + 1}</strong></td>
+                                    <td><strong>${m.Name}</strong></td>
+                                    <td class="fame-text">${formatNum(m.KillFame)}</td>
+                                    <td style="color:var(--text-muted)">${formatNum(m.LifetimeStatistics?.PvE?.Total || 0)}</td>
+                                </tr>
+                            `).join('') : '<tr><td colspan="4">No hay miembros disponibles</td></tr>'}
+                        </tbody>
+                    </table>
+                `;
+            } catch (e) {
+                body.innerHTML = `<p style="color:var(--red-bright); text-align:center;">Error al cargar el gremio.</p>`;
+            }
+        }
+
+        // BÚSQUEDA COMBINADA (JUGADORES Y GREMIOS)
+        async function searchEntities() {
             const q = document.getElementById('searchInput').value.trim();
             if (!q) return;
 
             const modal = document.getElementById('mainModal');
             const body = document.getElementById('modalBody');
             modal.style.display = 'flex';
-            body.innerHTML = `<p style="text-align:center; padding:20px;">🔍 Buscando "<strong>${q}</strong>" en ${currentServer.toUpperCase()}...</p>`;
+            body.innerHTML = `<p style="text-align:center; padding:30px;">🔍 Buscando "<strong>${q}</strong>" en ${currentServer.toUpperCase()}...</p>`;
 
             const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&server=${currentServer}`);
             const data = await res.json();
             const players = data.players || [];
+            const guilds = data.guilds || [];
 
             body.innerHTML = `
                 <h3 style="margin-bottom:14px;">🔍 Resultados para "${q}"</h3>
+
+                <h4 style="margin:16px 0 8px; color:var(--gold);">👤 JUGADORES ENCONTRADOS</h4>
                 <table>
                     <thead>
                         <tr><th>Jugador</th><th>Gremio</th><th>Fama Kill</th></tr>
                     </thead>
                     <tbody>
                         ${players.length ? players.map(p => `
-                            <tr class="clickable-row" onclick="openPlayerModal('${p.Id}', '${encodeURIComponent(p.Name)}', '${encodeURIComponent(p.GuildName || '')}', ${p.KillFame || 0})">
+                            <tr class="clickable-row" onclick="openPlayerModal('${p.Id}')">
                                 <td><strong>${p.Name}</strong></td>
                                 <td>${p.GuildName || 'Sin Gremio'}</td>
                                 <td class="fame-text">${formatNum(p.KillFame)}</td>
                             </tr>
-                        `).join('') : '<tr><td colspan="3">No se encontraron jugadores con ese nombre.</td></tr>'}
+                        `).join('') : '<tr><td colspan="3" style="color:var(--text-muted)">No se encontraron jugadores.</td></tr>'}
+                    </tbody>
+                </table>
+
+                <h4 style="margin:24px 0 8px; color:var(--blue);">🛡️ GREMIOS ENCONTRADOS</h4>
+                <table>
+                    <thead>
+                        <tr><th>Gremio</th><th>Alianza</th><th>Fama Kill Total</th></tr>
+                    </thead>
+                    <tbody>
+                        ${guilds.length ? guilds.map(g => `
+                            <tr class="clickable-row" onclick="openGuildModal('${g.Id}')">
+                                <td><strong>${g.Name}</strong></td>
+                                <td>${g.AllianceName || 'Sin Alianza'}</td>
+                                <td class="fame-text">${formatNum(g.KillFame)}</td>
+                            </tr>
+                        `).join('') : '<tr><td colspan="3" style="color:var(--text-muted)">No se encontraron gremios.</td></tr>'}
                     </tbody>
                 </table>
             `;
