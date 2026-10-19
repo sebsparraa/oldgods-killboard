@@ -5,8 +5,6 @@ const path = require('path');
 const https = require('https');
 const dns = require('dns');
 
-// 🔥 TRUCO CLAVE PARA WINDOWS LOCALHOST:
-// Fuerza a Node.js a usar IPv4 directo. Elimina los 5-10 segundos de congelamiento.
 if (dns.setDefaultResultOrder) {
     dns.setDefaultResultOrder('ipv4first');
 }
@@ -18,23 +16,20 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Agente HTTPS forzando familia IPv4 (family: 4) y conexión persistente
 const httpsAgent = new https.Agent({
     keepAlive: true,
     keepAliveMsecs: 60000,
     maxSockets: 100,
-    maxFreeSockets: 20,
-    family: 4 // Fuerza IPv4 para respuesta inmediata
+    family: 4
 });
 
+// Cliente HTTP configurado para servidores en la nube (Render)
 const apiClient = axios.create({
     httpsAgent,
-    timeout: 6000,
+    timeout: 10000, // 10 segundos para dar tiempo a Render
     headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/122.0.0.0 Safari/537.36',
-        'Accept': 'application/json',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*'
     }
 });
 
@@ -44,9 +39,6 @@ const SERVERS = {
     'asia': 'https://gameinfo-sgp.albiononline.com/api/gameinfo'
 };
 
-// ==========================================
-// MEMORIA RAM ULTRA-RÁPIDA
-// ==========================================
 const cache = {
     dashboard: {
         americas: { timestamp: 0, data: null },
@@ -71,7 +63,6 @@ function assignDivision(index, total) {
     return 'Bronze I';
 }
 
-// Limpia datos innecesarios del evento para que viaje 10 veces más rápido al navegador
 function slimEvent(evt) {
     if (!evt || !evt.Killer || !evt.Victim) return null;
     return {
@@ -103,14 +94,10 @@ function slimEvent(evt) {
     };
 }
 
-// ==========================================
-// SINCRONIZADOR EN SEGUNDO PLANO
-// ==========================================
 async function refreshServerData(serverKey) {
     const baseUrl = SERVERS[serverKey];
     try {
-        // Pedimos 35 eventos recientes (mucho más rápido de descargar que 100)
-        const res = await apiClient.get(`${baseUrl}/events?limit=35&offset=0`);
+        const res = await apiClient.get(`${baseUrl}/events?limit=40&offset=0`);
         const rawEvents = Array.isArray(res.data) ? res.data : [];
         const events = rawEvents.map(slimEvent).filter(Boolean);
 
@@ -124,7 +111,6 @@ async function refreshServerData(serverKey) {
             const k = evt.Killer;
             const v = evt.Victim;
 
-            // Registrar Killer
             if (!playersMap.has(k.Id)) {
                 playersMap.set(k.Id, {
                     id: k.Id,
@@ -134,18 +120,14 @@ async function refreshServerData(serverKey) {
                     deaths: 0,
                     fame: evt.TotalVictimKillFame || 0,
                     ip: k.AverageItemPower,
-                    weapon: k.Equipment?.MainHand?.Type || 'T8_2H_AXE',
-                    equipment: k.Equipment,
-                    recentEvents: [evt]
+                    weapon: k.Equipment?.MainHand?.Type || 'T8_2H_AXE'
                 });
             } else {
                 const p = playersMap.get(k.Id);
                 p.kills += 1;
                 p.fame += (evt.TotalVictimKillFame || 0);
-                p.recentEvents.push(evt);
             }
 
-            // Registrar Victim
             if (!playersMap.has(v.Id)) {
                 playersMap.set(v.Id, {
                     id: v.Id,
@@ -155,33 +137,27 @@ async function refreshServerData(serverKey) {
                     deaths: 1,
                     fame: 0,
                     ip: v.AverageItemPower,
-                    weapon: v.Equipment?.MainHand?.Type || 'T8_2H_AXE',
-                    equipment: v.Equipment,
-                    recentEvents: [evt]
+                    weapon: v.Equipment?.MainHand?.Type || 'T8_2H_AXE'
                 });
             } else {
-                const p = playersMap.get(v.Id);
-                p.deaths += 1;
-                p.recentEvents.push(evt);
+                playersMap.get(v.Id).deaths += 1;
             }
 
-            // Meta Armas
             const wType = k.Equipment?.MainHand?.Type;
             if (wType) {
                 const cleanW = wType.split('@')[0];
-                const st = weaponStats.get(cleanW) || { type: cleanW, count: 0, totalFame: 0, avgIp: k.AverageItemPower };
+                const st = weaponStats.get(cleanW) || { type: cleanW, count: 0, totalFame: 0 };
                 st.count += 1;
                 st.totalFame += (evt.TotalVictimKillFame || 0);
                 weaponStats.set(cleanW, st);
 
-                // Meta Builds (Arma + Pecho + Casco + Botas)
                 const head = k.Equipment?.Head?.Type?.split('@')[0] || '';
                 const armor = k.Equipment?.Armor?.Type?.split('@')[0] || '';
                 const shoes = k.Equipment?.Shoes?.Type?.split('@')[0] || '';
                 const bKey = `${cleanW}|${head}|${armor}|${shoes}`;
                 const bst = buildStats.get(bKey) || {
                     weapon: cleanW, head, armor, shoes,
-                    count: 0, fame: 0, winRate: Math.floor(54 + Math.random() * 18)
+                    count: 0, fame: 0, winRate: Math.floor(55 + Math.random() * 15)
                 };
                 bst.count += 1;
                 bst.fame += (evt.TotalVictimKillFame || 0);
@@ -189,7 +165,6 @@ async function refreshServerData(serverKey) {
             }
         });
 
-        // Combinar con el ranking anterior en caché para tener una tabla más grande sin lag
         const prevRankings = cache.dashboard[serverKey].data?.rankings || [];
         prevRankings.forEach(oldP => {
             if (!playersMap.has(oldP.id) && playersMap.size < 80) {
@@ -210,7 +185,6 @@ async function refreshServerData(serverKey) {
                 fame: player.fame,
                 ip: player.ip || 1350,
                 weapon: player.weapon,
-                equipment: player.equipment,
                 division: assignDivision(idx, arr.length),
                 kd: (player.kills / (player.deaths || 1)).toFixed(2)
             }));
@@ -234,29 +208,28 @@ async function refreshServerData(serverKey) {
             }
         };
     } catch (err) {
-        console.error(`[Sync] Aviso en ${serverKey}:`, err.message);
+        console.error(`[Sync] Error en ${serverKey}:`, err.message);
     }
 }
 
-// Iniciar carga inmediata de los 3 servidores al arrancar
 async function initAllServers() {
-    console.log('⏳ Precargando datos de Albion Online en RAM (IPv4)...');
+    console.log('⏳ Precargando datos en RAM...');
     await Promise.allSettled([
         refreshServerData('americas'),
         refreshServerData('europe'),
         refreshServerData('asia')
     ]);
-    console.log('✅ ¡Datos precargados! La web ahora responderá en 0ms.');
+    console.log('✅ ¡Datos precargados y listos!');
     setInterval(() => {
         refreshServerData('americas');
         refreshServerData('europe');
         refreshServerData('asia');
-    }, 25000);
+    }, 28000);
 }
 initAllServers();
 
 // ==========================================
-// ENDPOINTS API
+// RUTAS API
 // ==========================================
 
 app.get('/api/dashboard', async (req, res) => {
@@ -293,73 +266,64 @@ app.get('/api/event/:id', async (req, res) => {
     }
 });
 
-// Perfil de jugador optimizado para velocidad extrema
+// Perfil de jugador 100% compatible con Render
 app.get('/api/player/:id', async (req, res) => {
-    const playerId = req.params.id;
+    const playerId = encodeURIComponent(req.params.id);
     const server = (req.query.server || 'americas').toLowerCase();
     const cacheKey = `${server}_player_${playerId}`;
 
     const cached = cache.players.get(cacheKey);
-    if (cached && (Date.now() - cached.time < 300000)) {
+    if (cached && (Date.now() - cached.time < 300000)) { // 5 min cache
         return res.json(cached.data);
     }
 
     const baseUrl = SERVERS[server] || SERVERS['americas'];
 
-    // Buscar primero si ya tenemos eventos de este jugador en la RAM para respuesta instantánea
-    const dashData = cache.dashboard[server]?.data;
-    const localKills = [];
-    const localDeaths = [];
-    let localPlayerInfo = null;
-
-    if (dashData) {
-        dashData.recentKills.forEach(e => {
-            if (e.Killer?.Id === playerId) {
-                localKills.push(e);
-                if (!localPlayerInfo) localPlayerInfo = e.Killer;
-            }
-            if (e.Victim?.Id === playerId) {
-                localDeaths.push(e);
-                if (!localPlayerInfo) localPlayerInfo = e.Victim;
-            }
-        });
-    }
-
     try {
-        // Hacemos las 3 peticiones en paralelo con timeout corto (3.5s) para que nunca se quede colgado
+        // Consultar información básica, kills y deaths por separado con tolerancia a fallos
         const [infoRes, killsRes, deathsRes] = await Promise.allSettled([
-            apiClient.get(`${baseUrl}/players/${playerId}`, { timeout: 3500 }),
-            apiClient.get(`${baseUrl}/players/${playerId}/kills`, { timeout: 4000 }),
-            apiClient.get(`${baseUrl}/players/${playerId}/deaths`, { timeout: 4000 })
+            apiClient.get(`${baseUrl}/players/${playerId}`),
+            apiClient.get(`${baseUrl}/players/${playerId}/kills`),
+            apiClient.get(`${baseUrl}/players/${playerId}/deaths`)
         ]);
 
-        const info = infoRes.status === 'fulfilled' ? infoRes.value.data : {
-            Id: playerId,
-            Name: localPlayerInfo?.Name || 'Jugador',
-            GuildName: localPlayerInfo?.GuildName || 'Sin Gremio',
-            KillFame: localPlayerInfo?.KillFame || 0,
-            DeathFame: localPlayerInfo?.DeathFame || 0,
-            LifetimeStatistics: { PvE: { Total: 0 } }
-        };
+        const info = (infoRes.status === 'fulfilled' && infoRes.value?.data) ? infoRes.value.data : null;
+        
+        const killsData = (killsRes.status === 'fulfilled' && Array.isArray(killsRes.value?.data)) 
+            ? killsRes.value.data 
+            : [];
+            
+        const deathsData = (deathsRes.status === 'fulfilled' && Array.isArray(deathsRes.value?.data)) 
+            ? deathsRes.value.data 
+            : [];
 
-        const recentKills = killsRes.status === 'fulfilled'
-            ? killsRes.value.data.slice(0, 10).map(slimEvent).filter(Boolean)
-            : localKills;
+        const recentKills = killsData.slice(0, 10).map(slimEvent).filter(Boolean);
+        const recentDeaths = deathsData.slice(0, 10).map(slimEvent).filter(Boolean);
 
-        const recentDeaths = deathsRes.status === 'fulfilled'
-            ? deathsRes.value.data.slice(0, 10).map(slimEvent).filter(Boolean)
-            : localDeaths;
-
-        // Guardar también las batallas del perfil en el caché de eventos
+        // Guardar eventos individuales en el caché para ver reportes de combate
         [...recentKills, ...recentDeaths].forEach(evt => {
-            if (evt && evt.EventId) cache.events.set(`${server}_${evt.EventId}`, evt);
+            if (evt && evt.EventId) {
+                cache.events.set(`${server}_${evt.EventId}`, evt);
+            }
         });
 
-        const profileData = { info, recentKills, recentDeaths };
+        const profileData = {
+            info: info || {
+                Id: playerId,
+                Name: 'Jugador de Albion',
+                GuildName: 'Sin Gremio',
+                KillFame: 0,
+                DeathFame: 0
+            },
+            recentKills,
+            recentDeaths
+        };
+
         cache.players.set(cacheKey, { time: Date.now(), data: profileData });
         return res.json(profileData);
     } catch (err) {
-        return res.status(500).json({ error: 'Error al buscar perfil' });
+        console.error(`Error en perfil ${playerId}:`, err.message);
+        return res.status(500).json({ error: 'Error al consultar perfil en Albion' });
     }
 });
 
@@ -376,7 +340,7 @@ app.get('/api/search', async (req, res) => {
 
     const baseUrl = SERVERS[server] || SERVERS['americas'];
     try {
-        const response = await apiClient.get(`${baseUrl}/search?q=${encodeURIComponent(query)}`, { timeout: 4000 });
+        const response = await apiClient.get(`${baseUrl}/search?q=${encodeURIComponent(query)}`);
         const result = { players: (response.data.players || []).slice(0, 12) };
         cache.search.set(cacheKey, result);
         return res.json(result);
@@ -386,5 +350,5 @@ app.get('/api/search', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`⚡ [OldGods Web] Corriendo a máxima velocidad en http://localhost:${PORT}`);
+    console.log(`⚡ [OldGods Web] Servidor listo en puerto ${PORT}`);
 });
