@@ -110,7 +110,7 @@
             text-transform: uppercase;
         }
 
-        /* PANTALLA 1: SELECCION DE SERVIDOR */
+        /* SELECCIÓN SERVIDOR */
         #server-select-view {
             flex: 1;
             display: flex;
@@ -170,7 +170,7 @@
             box-shadow: 0 0 8px var(--green);
         }
 
-        /* PANTALLA 2: DASHBOARD */
+        /* DASHBOARD */
         #dashboard-view {
             display: none;
             max-width: 1400px;
@@ -180,7 +180,6 @@
             flex: 1;
         }
 
-        /* TABS */
         .tabs-bar {
             display: flex;
             gap: 10px;
@@ -223,7 +222,6 @@
             font-weight: 600;
         }
 
-        /* GRID PRINCIPAL */
         .dashboard-grid {
             display: grid;
             grid-template-columns: 2fr 1fr;
@@ -293,7 +291,7 @@
         .modal-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(0, 0, 0, 0.82);
+            background: rgba(0, 0, 0, 0.85);
             display: none;
             align-items: center;
             justify-content: center;
@@ -387,7 +385,6 @@
 </head>
 <body>
 
-    <!-- NAVBAR -->
     <nav class="navbar">
         <div class="brand" onclick="showServerSelection()">
             <div class="brand-title">OLD<span>GODS</span></div>
@@ -403,7 +400,6 @@
         </div>
     </nav>
 
-    <!-- PANTALLA 1: SELECCION DE SERVIDOR -->
     <section id="server-select-view">
         <h1 class="hero-title">OLD<span>GODS</span> KILLBOARD</h1>
         <p class="hero-sub">Selecciona tu servidor de Albion Online para inspeccionar Rankings, Meta Builds y Batallas en tiempo real</p>
@@ -412,22 +408,21 @@
             <div class="server-card" onclick="selectServer('americas')">
                 <h2>🌎 AMÉRICAS</h2>
                 <p>Servidor Washington (West)</p>
-                <div><span class="status-dot"></span><small>Sincronizado en RAM (0ms)</small></div>
+                <div><span class="status-dot"></span><small>Sincronizado en RAM</small></div>
             </div>
             <div class="server-card" onclick="selectServer('europe')">
                 <h2>🌍 EUROPA</h2>
                 <p>Servidor Ámsterdam (EU)</p>
-                <div><span class="status-dot"></span><small>Sincronizado en RAM (0ms)</small></div>
+                <div><span class="status-dot"></span><small>Sincronizado en RAM</small></div>
             </div>
             <div class="server-card" onclick="selectServer('asia')">
                 <h2>🌏 ASIA</h2>
                 <p>Servidor Singapur (East)</p>
-                <div><span class="status-dot"></span><small>Sincronizado en RAM (0ms)</small></div>
+                <div><span class="status-dot"></span><small>Sincronizado en RAM</small></div>
             </div>
         </div>
     </section>
 
-    <!-- PANTALLA 2: DASHBOARD -->
     <main id="dashboard-view">
         <div class="tabs-bar">
             <div class="tab-buttons">
@@ -452,7 +447,6 @@
             </div>
         </div>
 
-        <!-- SECCIÓN 1: RANKING Y KILLS EN VIVO -->
         <div id="tab-ranking" class="dashboard-grid">
             <div class="panel">
                 <div class="panel-header">
@@ -493,7 +487,6 @@
             </div>
         </div>
 
-        <!-- SECCIÓN 2: META ARMAS Y BUILDS -->
         <div id="tab-meta" style="display:none;" class="dashboard-grid">
             <div class="panel">
                 <div class="panel-header">
@@ -532,7 +525,6 @@
         </div>
     </main>
 
-    <!-- MODAL DE BATALLA O PERFIL -->
     <div class="modal-overlay" id="mainModal" onclick="if(event.target===this) closeModal()">
         <div class="modal-content">
             <button class="close-btn" onclick="closeModal()">✕</button>
@@ -546,7 +538,6 @@
 
     <script>
         let currentServer = 'americas';
-        // Caché en el navegador para cambio en 0.00s
         const browserCache = {
             americas: null,
             europe: null,
@@ -554,7 +545,6 @@
             events: {}
         };
 
-        // 🔥 PRECARGA AUTOMÁTICA MIENTRAS EL USUARIO ELIGE SERVIDOR
         window.addEventListener('DOMContentLoaded', () => {
             ['americas', 'europe', 'asia'].forEach(srv => prefetchDashboard(srv));
         });
@@ -590,10 +580,8 @@
             document.getElementById('server-select-view').style.display = 'none';
             document.getElementById('dashboard-view').style.display = 'block';
 
-            // Si ya se precargó, mostrar en 0 milisegundos
             if (browserCache[server]) {
                 renderAll(browserCache[server]);
-                prefetchDashboard(server); // actualizar silenciosamente
             } else {
                 await prefetchDashboard(server);
                 if (browserCache[server]) renderAll(browserCache[server]);
@@ -622,7 +610,7 @@
             document.getElementById('rankingCount').textContent = `${list.length} Jugadores`;
             const tbody = document.getElementById('rankingsTableBody');
             tbody.innerHTML = list.map(p => `
-                <tr class="clickable-row" onclick="openPlayerModal('${p.id}', '${p.name.replace(/'/g, '')}', '${p.guildName.replace(/'/g, '')}', ${p.fame})">
+                <tr class="clickable-row" onclick="openPlayerModal('${p.id}', '${encodeURIComponent(p.name)}', '${encodeURIComponent(p.guildName)}', ${p.fame})">
                     <td><strong>#${p.rank}</strong></td>
                     <td>${itemImg(p.weapon, 38)}</td>
                     <td><strong>${p.name}</strong> <small style="color:var(--text-muted)">(${p.ip} IP)</small></td>
@@ -684,7 +672,6 @@
             }).join('') + `</div>`;
         }
 
-        // APERTURA INSTANTÁNEA DE BATALLA (0ms desde caché)
         async function openBattleModal(eventId) {
             const modal = document.getElementById('mainModal');
             const body = document.getElementById('modalBody');
@@ -727,16 +714,20 @@
             `;
         }
 
-        // APERTURA INSTANTÁNEA DE JUGADOR (Muestra cabecera al instante y carga el historial)
-        async function openPlayerModal(playerId, initialName = 'Jugador', initialGuild = '', initialFame = 0) {
+        async function openPlayerModal(playerId, encodedName = 'Jugador', encodedGuild = '', initialFame = 0) {
             const modal = document.getElementById('mainModal');
             const body = document.getElementById('modalBody');
             modal.style.display = 'flex';
 
+            const name = decodeURIComponent(encodedName);
+            const guild = decodeURIComponent(encodedGuild);
+
             body.innerHTML = `
-                <h2 style="font-family:'Cinzel',serif;">👤 ${initialName}</h2>
-                <p style="color:var(--text-muted); margin-bottom:16px;">Gremio: <strong>${initialGuild || 'Cargando...'}</strong> | Fama: <span class="fame-text">${formatNum(initialFame)}</span></p>
-                <p style="color:var(--gold);">⚡ Sincronizando últimas 10 Kills y 10 Muertes...</p>
+                <h2 style="font-family:'Cinzel',serif;">👤 ${name}</h2>
+                <p style="color:var(--text-muted); margin-bottom:16px;">Gremio: <strong>${guild || 'Consultando...'}</strong> | Fama: <span class="fame-text">${formatNum(initialFame)}</span></p>
+                <div style="background:#11131c; padding:20px; border-radius:8px; border:1px solid var(--border); text-align:center;">
+                    <p style="color:var(--gold); font-weight:600;">⚡ Descargando historial de 10 Kills y 10 Muertes desde Albion...</p>
+                </div>
             `;
 
             try {
@@ -746,15 +737,14 @@
                 const kills = data.recentKills || [];
                 const deaths = data.recentDeaths || [];
 
-                // Guardar eventos en caché por si el usuario hace clic en uno
                 [...kills, ...deaths].forEach(e => {
                     if (e && e.EventId) browserCache.events[`${currentServer}_${e.EventId}`] = e;
                 });
 
                 body.innerHTML = `
-                    <h2 style="font-family:'Cinzel',serif;">👤 ${info.Name || initialName}</h2>
+                    <h2 style="font-family:'Cinzel',serif;">👤 ${info.Name || name}</h2>
                     <p style="color:var(--text-muted); margin-bottom:16px;">
-                        Gremio: <strong>${info.GuildName || initialGuild || 'Sin Gremio'}</strong> |
+                        Gremio: <strong>${info.GuildName || guild || 'Sin Gremio'}</strong> |
                         Kill Fame: <span class="fame-text">${formatNum(info.KillFame || initialFame)}</span> |
                         Death Fame: <span style="color:var(--red-bright)">${formatNum(info.DeathFame || 0)}</span>
                     </p>
@@ -769,7 +759,7 @@
                                             <td>${itemImg(k.Killer?.Equipment?.MainHand?.Type, 30)} vs <strong>${k.Victim?.Name}</strong></td>
                                             <td class="fame-text">+${formatNum(k.TotalVictimKillFame)}</td>
                                         </tr>
-                                    `).join('') : '<tr><td>Sin bajas recientes</td></tr>'}
+                                    `).join('') : '<tr><td style="color:var(--text-muted); padding:10px;">Sin bajas registradas en esta temporada</td></tr>'}
                                 </tbody>
                             </table>
                         </div>
@@ -783,14 +773,14 @@
                                             <td>${itemImg(d.Victim?.Equipment?.MainHand?.Type, 30)} por <strong>${d.Killer?.Name}</strong></td>
                                             <td style="color:var(--red-bright)">-${formatNum(d.TotalVictimKillFame)}</td>
                                         </tr>
-                                    `).join('') : '<tr><td>Sin muertes recientes</td></tr>'}
+                                    `).join('') : '<tr><td style="color:var(--text-muted); padding:10px;">Sin muertes registradas en esta temporada</td></tr>'}
                                 </tbody>
                             </table>
                         </div>
                     </div>
                 `;
             } catch (e) {
-                body.innerHTML += `<p style="color:var(--red-bright)">No se pudo conectar con Albion en este momento.</p>`;
+                body.innerHTML += `<p style="color:var(--red-bright); margin-top:10px;">Error al conectar con los servidores de Albion.</p>`;
             }
         }
 
@@ -815,7 +805,7 @@
                     </thead>
                     <tbody>
                         ${players.length ? players.map(p => `
-                            <tr class="clickable-row" onclick="openPlayerModal('${p.Id}', '${p.Name.replace(/'/g, '')}', '${(p.GuildName || '').replace(/'/g, '')}', ${p.KillFame || 0})">
+                            <tr class="clickable-row" onclick="openPlayerModal('${p.Id}', '${encodeURIComponent(p.Name)}', '${encodeURIComponent(p.GuildName || '')}', ${p.KillFame || 0})">
                                 <td><strong>${p.Name}</strong></td>
                                 <td>${p.GuildName || 'Sin Gremio'}</td>
                                 <td class="fame-text">${formatNum(p.KillFame)}</td>
