@@ -23,10 +23,9 @@ const httpsAgent = new https.Agent({
     family: 4
 });
 
-// Cliente HTTP configurado para servidores en la nube (Render)
 const apiClient = axios.create({
     httpsAgent,
-    timeout: 10000, // 10 segundos para dar tiempo a Render
+    timeout: 10000,
     headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Accept': 'application/json, text/plain, */*'
@@ -46,6 +45,7 @@ const cache = {
         asia: { timestamp: 0, data: null }
     },
     players: new Map(),
+    guilds: new Map(),
     events: new Map(),
     search: new Map()
 };
@@ -73,6 +73,7 @@ function slimEvent(evt) {
         Killer: {
             Id: evt.Killer.Id,
             Name: evt.Killer.Name,
+            GuildId: evt.Killer.GuildId || '',
             GuildName: evt.Killer.GuildName || '',
             AllianceName: evt.Killer.AllianceName || '',
             AverageItemPower: Math.round(evt.Killer.AverageItemPower || 0),
@@ -83,6 +84,7 @@ function slimEvent(evt) {
         Victim: {
             Id: evt.Victim.Id,
             Name: evt.Victim.Name,
+            GuildId: evt.Victim.GuildId || '',
             GuildName: evt.Victim.GuildName || '',
             AllianceName: evt.Victim.AllianceName || '',
             AverageItemPower: Math.round(evt.Victim.AverageItemPower || 0),
@@ -115,6 +117,7 @@ async function refreshServerData(serverKey) {
                 playersMap.set(k.Id, {
                     id: k.Id,
                     name: k.Name,
+                    guildId: k.GuildId,
                     guildName: k.GuildName || 'Sin Gremio',
                     kills: 1,
                     deaths: 0,
@@ -132,6 +135,7 @@ async function refreshServerData(serverKey) {
                 playersMap.set(v.Id, {
                     id: v.Id,
                     name: v.Name,
+                    guildId: v.GuildId,
                     guildName: v.GuildName || 'Sin Gremio',
                     kills: 0,
                     deaths: 1,
@@ -179,6 +183,7 @@ async function refreshServerData(serverKey) {
                 rank: idx + 1,
                 id: player.id,
                 name: player.name,
+                guildId: player.guildId,
                 guildName: player.guildName,
                 kills: player.kills,
                 deaths: player.deaths,
@@ -232,6 +237,7 @@ initAllServers();
 // RUTAS API
 // ==========================================
 
+// Dashboard principal
 app.get('/api/dashboard', async (req, res) => {
     const server = (req.query.server || 'americas').toLowerCase();
     const serverKey = SERVERS[server] ? server : 'americas';
@@ -246,6 +252,7 @@ app.get('/api/dashboard', async (req, res) => {
     });
 });
 
+// Evento / Batalla
 app.get('/api/event/:id', async (req, res) => {
     const eventId = req.params.id;
     const server = (req.query.server || 'americas').toLowerCase();
@@ -266,21 +273,20 @@ app.get('/api/event/:id', async (req, res) => {
     }
 });
 
-// Perfil de jugador 100% compatible con Render
+// Perfil completo del Jugador
 app.get('/api/player/:id', async (req, res) => {
     const playerId = encodeURIComponent(req.params.id);
     const server = (req.query.server || 'americas').toLowerCase();
     const cacheKey = `${server}_player_${playerId}`;
 
     const cached = cache.players.get(cacheKey);
-    if (cached && (Date.now() - cached.time < 300000)) { // 5 min cache
+    if (cached && (Date.now() - cached.time < 300000)) {
         return res.json(cached.data);
     }
 
     const baseUrl = SERVERS[server] || SERVERS['americas'];
 
     try {
-        // Consultar información básica, kills y deaths por separado con tolerancia a fallos
         const [infoRes, killsRes, deathsRes] = await Promise.allSettled([
             apiClient.get(`${baseUrl}/players/${playerId}`),
             apiClient.get(`${baseUrl}/players/${playerId}/kills`),
@@ -300,17 +306,14 @@ app.get('/api/player/:id', async (req, res) => {
         const recentKills = killsData.slice(0, 10).map(slimEvent).filter(Boolean);
         const recentDeaths = deathsData.slice(0, 10).map(slimEvent).filter(Boolean);
 
-        // Guardar eventos individuales en el caché para ver reportes de combate
         [...recentKills, ...recentDeaths].forEach(evt => {
-            if (evt && evt.EventId) {
-                cache.events.set(`${server}_${evt.EventId}`, evt);
-            }
+            if (evt && evt.EventId) cache.events.set(`${server}_${evt.EventId}`, evt);
         });
 
         const profileData = {
             info: info || {
                 Id: playerId,
-                Name: 'Jugador de Albion',
+                Name: 'Jugador',
                 GuildName: 'Sin Gremio',
                 KillFame: 0,
                 DeathFame: 0
@@ -322,16 +325,49 @@ app.get('/api/player/:id', async (req, res) => {
         cache.players.set(cacheKey, { time: Date.now(), data: profileData });
         return res.json(profileData);
     } catch (err) {
-        console.error(`Error en perfil ${playerId}:`, err.message);
-        return res.status(500).json({ error: 'Error al consultar perfil en Albion' });
+        return res.status(500).json({ error: 'Error al consultar jugador' });
     }
 });
 
-// Búsqueda con caché instantáneo
+// Perfil de Gremio (Guild)
+app.get('/api/guild/:id', async (req, res) => {
+    const guildId = encodeURIComponent(req.params.id);
+    const server = (req.query.server || 'americas').toLowerCase();
+    const cacheKey = `${server}_guild_${guildId}`;
+
+    const cached = cache.guilds.get(cacheKey);
+    if (cached && (Date.now() - cached.time < 300000)) {
+        return res.json(cached.data);
+    }
+
+    const baseUrl = SERVERS[server] || SERVERS['americas'];
+
+    try {
+        const [guildRes, membersRes] = await Promise.allSettled([
+            apiClient.get(`${baseUrl}/guilds/${guildId}`),
+            apiClient.get(`${baseUrl}/guilds/${guildId}/members`)
+        ]);
+
+        const guildInfo = (guildRes.status === 'fulfilled' && guildRes.value?.data) ? guildRes.value.data : null;
+        const members = (membersRes.status === 'fulfilled' && Array.isArray(membersRes.value?.data)) ? membersRes.value.data : [];
+
+        const data = {
+            info: guildInfo,
+            members: members.sort((a, b) => (b.KillFame || 0) - (a.KillFame || 0)).slice(0, 20)
+        };
+
+        cache.guilds.set(cacheKey, { time: Date.now(), data });
+        return res.json(data);
+    } catch (err) {
+        return res.status(500).json({ error: 'Error al consultar gremio' });
+    }
+});
+
+// Búsqueda combinada: Jugadores y Gremios
 app.get('/api/search', async (req, res) => {
     const query = (req.query.q || '').trim();
     const server = (req.query.server || 'americas').toLowerCase();
-    if (!query) return res.json({ players: [] });
+    if (!query) return res.json({ players: [], guilds: [] });
 
     const cacheKey = `${server}_q_${query.toLowerCase()}`;
     if (cache.search.has(cacheKey)) {
@@ -341,11 +377,14 @@ app.get('/api/search', async (req, res) => {
     const baseUrl = SERVERS[server] || SERVERS['americas'];
     try {
         const response = await apiClient.get(`${baseUrl}/search?q=${encodeURIComponent(query)}`);
-        const result = { players: (response.data.players || []).slice(0, 12) };
+        const result = {
+            players: (response.data.players || []).slice(0, 10),
+            guilds: (response.data.guilds || []).slice(0, 10)
+        };
         cache.search.set(cacheKey, result);
         return res.json(result);
     } catch (err) {
-        return res.json({ players: [] });
+        return res.json({ players: [], guilds: [] });
     }
 });
 
